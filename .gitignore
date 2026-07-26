@@ -1,0 +1,20 @@
+# Build output (the binary at the repo root, not cmd/k8s-upgrade-report/)
+/bin/
+/dist/
+/k8s-upgrade-report
+
+# Local report and patch output (the published sample is committed on purpose)
+*.patch
+report.html
+report.json
+!docs/sample-report.patch
+
+# Go
+*.test
+*.out
+coverage.txt
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
