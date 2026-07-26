@@ -1,0 +1,59 @@
+# Managed-control-plane addon floors, per cloud, per Kubernetes minor.
+#
+# These are the addons whose *version* has to move with the control plane. If
+# the cluster runs an older one, the upgrade either fails or silently breaks
+# networking after the first node rolls. Values are the minimum version the
+# vendor documents as supported for that minor; treat them as a floor, not a
+# recommendation.
+#
+# Only EKS, AKS and GKE are in scope. Anything else (kubeadm, k3s, OpenShift)
+# is out of scope for this tool by design.
+version: 1
+providers:
+  eks:
+    name: Amazon EKS
+    sequencing:
+      - Upgrade the control plane one minor at a time. EKS refuses to skip minors.
+      - Update the managed addons (vpc-cni, kube-proxy, coredns) to the floor for the new minor *before* rolling nodes.
+      - Roll managed node groups after the control plane. Nodes may lag the control plane by at most 1-2 minors depending on version.
+      - Check every PodDisruptionBudget first - a PDB that can never be satisfied stalls a managed node group update until it times out and rolls back.
+      - Self-managed nodes and Karpenter node pools need their AMI/AMI family pinned version bumped separately.
+    addons:
+      "1.25": {vpc-cni: 1.12.0, kube-proxy: 1.25.6, coredns: 1.9.3, aws-ebs-csi-driver: 1.16.0}
+      "1.26": {vpc-cni: 1.12.6, kube-proxy: 1.26.2, coredns: 1.9.3, aws-ebs-csi-driver: 1.19.0}
+      "1.27": {vpc-cni: 1.12.6, kube-proxy: 1.27.1, coredns: 1.10.1, aws-ebs-csi-driver: 1.19.0}
+      "1.28": {vpc-cni: 1.15.0, kube-proxy: 1.28.1, coredns: 1.10.1, aws-ebs-csi-driver: 1.25.0}
+      "1.29": {vpc-cni: 1.16.0, kube-proxy: 1.29.0, coredns: 1.11.1, aws-ebs-csi-driver: 1.28.0}
+      "1.30": {vpc-cni: 1.18.1, kube-proxy: 1.30.0, coredns: 1.11.1, aws-ebs-csi-driver: 1.31.0}
+      "1.31": {vpc-cni: 1.18.5, kube-proxy: 1.31.0, coredns: 1.11.3, aws-ebs-csi-driver: 1.35.0}
+      "1.32": {vpc-cni: 1.19.2, kube-proxy: 1.32.0, coredns: 1.11.4, aws-ebs-csi-driver: 1.38.0}
+  aks:
+    name: Azure AKS
+    sequencing:
+      - Upgrade the control plane one minor at a time; AKS blocks minor skips unless the cluster is on LTS.
+      - Node image upgrades and Kubernetes upgrades are separate operations - do the node image first if it is more than a month stale.
+      - Node surge defaults to 1 node; raise max surge before upgrading large pools or the roll takes hours.
+      - Managed addons (CoreDNS, metrics-server, CSI drivers) follow the control plane automatically, but *pinned* addon overrides in a ConfigMap do not.
+      - Check that the cluster is not on a minor past its AKS community-support window; upgrades out of support are best-effort.
+    addons:
+      "1.27": {azure-cni: 1.4.52, csi-azuredisk: 1.28.0, csi-azurefile: 1.28.0}
+      "1.28": {azure-cni: 1.5.3, csi-azuredisk: 1.29.0, csi-azurefile: 1.29.0}
+      "1.29": {azure-cni: 1.5.16, csi-azuredisk: 1.30.0, csi-azurefile: 1.30.0}
+      "1.30": {azure-cni: 1.5.32, csi-azuredisk: 1.30.3, csi-azurefile: 1.30.3}
+      "1.31": {azure-cni: 1.6.7, csi-azuredisk: 1.31.0, csi-azurefile: 1.31.0}
+      "1.32": {azure-cni: 1.6.19, csi-azuredisk: 1.32.0, csi-azurefile: 1.32.0}
+  gke:
+    name: Google GKE
+    sequencing:
+      - Control plane upgrades are automatic on release channels; pin a maintenance window before the minor lands rather than after.
+      - Node pools may trail the control plane by at most 2 minors before GKE forces them.
+      - Surge upgrade settings (maxSurge/maxUnavailable) decide whether the node pool roll is minutes or hours.
+      - Autopilot clusters ignore node-pool sequencing entirely, but workload-level blockers (PDBs, deprecated APIs) still apply.
+      - Check the release-channel notes for the target minor - GKE removes beta APIs on the same schedule as upstream, with no grace period.
+    addons:
+      "1.27": {gke-metadata-server: 1.27.0, netd: 1.27.0}
+      "1.28": {gke-metadata-server: 1.28.0, netd: 1.28.0}
+      "1.29": {gke-metadata-server: 1.29.0, netd: 1.29.0}
+      "1.30": {gke-metadata-server: 1.30.0, netd: 1.30.0}
+      "1.31": {gke-metadata-server: 1.31.0, netd: 1.31.0}
+      "1.32": {gke-metadata-server: 1.32.0, netd: 1.32.0}

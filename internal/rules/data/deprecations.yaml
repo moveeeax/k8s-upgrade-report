@@ -1,0 +1,285 @@
+# Kubernetes API removals that actually break upgrades.
+#
+# Source of truth: https://kubernetes.io/docs/reference/using-api/deprecation-guide/
+# Only APIs that are *removed* (not merely deprecated) are listed: a deprecated
+# API that still serves traffic is not an upgrade blocker.
+#
+# transform values:
+#   apiversion - rewriting apiVersion is sufficient, no field moves
+#   ingress-v1 - apiVersion rewrite plus backend/path field moves
+#   hpa-v2     - apiVersion rewrite plus metric target restructuring
+#   manual     - no mechanical rewrite exists, a human has to decide
+version: 1
+rules:
+  - id: ingress-extensions-v1beta1
+    kind: Ingress
+    from: extensions/v1beta1
+    to: networking.k8s.io/v1
+    deprecatedIn: "1.14"
+    removedIn: "1.22"
+    transform: ingress-v1
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#ingress-v122
+    notes: >-
+      backend.serviceName/servicePort move under backend.service, spec.backend
+      becomes spec.defaultBackend and every path needs an explicit pathType.
+
+  - id: ingress-networking-v1beta1
+    kind: Ingress
+    from: networking.k8s.io/v1beta1
+    to: networking.k8s.io/v1
+    deprecatedIn: "1.19"
+    removedIn: "1.22"
+    transform: ingress-v1
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#ingress-v122
+    notes: >-
+      Same field moves as the extensions/v1beta1 form. Ingress controllers
+      pinned to v1beta1 (older nginx-ingress, older ALB controller) must be
+      upgraded before the objects are rewritten.
+
+  - id: ingressclass-v1beta1
+    kind: IngressClass
+    from: networking.k8s.io/v1beta1
+    to: networking.k8s.io/v1
+    deprecatedIn: "1.19"
+    removedIn: "1.22"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#ingressclass-v122
+
+  - id: crd-apiextensions-v1beta1
+    kind: CustomResourceDefinition
+    from: apiextensions.k8s.io/v1beta1
+    to: apiextensions.k8s.io/v1
+    deprecatedIn: "1.16"
+    removedIn: "1.22"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#customresourcedefinition-v122
+    notes: >-
+      v1 requires a structural schema per version and drops the top-level
+      validation/subresources fields. Almost always shipped by a vendor chart -
+      upgrade the chart rather than hand-editing the CRD.
+
+  - id: validatingwebhookconfiguration-v1beta1
+    kind: ValidatingWebhookConfiguration
+    from: admissionregistration.k8s.io/v1beta1
+    to: admissionregistration.k8s.io/v1
+    deprecatedIn: "1.16"
+    removedIn: "1.22"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#webhook-resources-v122
+    notes: >-
+      v1 makes webhooks.sideEffects and webhooks.admissionReviewVersions
+      required and defaults failurePolicy to Fail.
+
+  - id: mutatingwebhookconfiguration-v1beta1
+    kind: MutatingWebhookConfiguration
+    from: admissionregistration.k8s.io/v1beta1
+    to: admissionregistration.k8s.io/v1
+    deprecatedIn: "1.16"
+    removedIn: "1.22"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#webhook-resources-v122
+    notes: Same required-field additions as ValidatingWebhookConfiguration.
+
+  - id: clusterrole-rbac-v1beta1
+    kind: ClusterRole
+    from: rbac.authorization.k8s.io/v1beta1
+    to: rbac.authorization.k8s.io/v1
+    deprecatedIn: "1.17"
+    removedIn: "1.22"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#rbac-resources-v122
+
+  - id: clusterrolebinding-rbac-v1beta1
+    kind: ClusterRoleBinding
+    from: rbac.authorization.k8s.io/v1beta1
+    to: rbac.authorization.k8s.io/v1
+    deprecatedIn: "1.17"
+    removedIn: "1.22"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#rbac-resources-v122
+
+  - id: role-rbac-v1beta1
+    kind: Role
+    from: rbac.authorization.k8s.io/v1beta1
+    to: rbac.authorization.k8s.io/v1
+    deprecatedIn: "1.17"
+    removedIn: "1.22"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#rbac-resources-v122
+
+  - id: rolebinding-rbac-v1beta1
+    kind: RoleBinding
+    from: rbac.authorization.k8s.io/v1beta1
+    to: rbac.authorization.k8s.io/v1
+    deprecatedIn: "1.17"
+    removedIn: "1.22"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#rbac-resources-v122
+
+  - id: podsecuritypolicy-v1beta1
+    kind: PodSecurityPolicy
+    from: policy/v1beta1
+    to: ""
+    deprecatedIn: "1.21"
+    removedIn: "1.25"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#psp-v125
+    notes: >-
+      No replacement API. Map each policy onto Pod Security Admission labels on
+      the namespace (privileged/baseline/restricted) or onto an admission
+      controller you already run. The remaining RBAC rules that grant "use" on
+      podsecuritypolicies become dead but harmless.
+
+  - id: poddisruptionbudget-policy-v1beta1
+    kind: PodDisruptionBudget
+    from: policy/v1beta1
+    to: policy/v1
+    deprecatedIn: "1.21"
+    removedIn: "1.25"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#poddisruptionbudget-v125
+    notes: >-
+      Field-compatible, but in policy/v1 an empty selector selects every pod in
+      the namespace instead of none. Check any PDB with `selector: {}`.
+
+  - id: cronjob-batch-v1beta1
+    kind: CronJob
+    from: batch/v1beta1
+    to: batch/v1
+    deprecatedIn: "1.21"
+    removedIn: "1.25"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#cronjob-v125
+
+  - id: hpa-autoscaling-v2beta1
+    kind: HorizontalPodAutoscaler
+    from: autoscaling/v2beta1
+    to: autoscaling/v2
+    deprecatedIn: "1.22"
+    removedIn: "1.25"
+    transform: hpa-v2
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#horizontalpodautoscaler-v125
+    notes: >-
+      metrics[].resource.targetAverageUtilization becomes
+      metrics[].resource.target.averageUtilization with an explicit target type.
+
+  - id: endpointslice-discovery-v1beta1
+    kind: EndpointSlice
+    from: discovery.k8s.io/v1beta1
+    to: discovery.k8s.io/v1
+    deprecatedIn: "1.21"
+    removedIn: "1.25"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#endpointslice-v125
+    notes: topology is replaced by deprecatedTopology plus nodeName/zone.
+
+  - id: event-events-v1beta1
+    kind: Event
+    from: events.k8s.io/v1beta1
+    to: events.k8s.io/v1
+    deprecatedIn: "1.22"
+    removedIn: "1.25"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#event-v125
+
+  - id: hpa-autoscaling-v2beta2
+    kind: HorizontalPodAutoscaler
+    from: autoscaling/v2beta2
+    to: autoscaling/v2
+    deprecatedIn: "1.23"
+    removedIn: "1.26"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#horizontalpodautoscaler-v126
+    notes: Field-compatible with autoscaling/v2.
+
+  - id: flowschema-v1beta1
+    kind: FlowSchema
+    from: flowcontrol.apiserver.k8s.io/v1beta1
+    to: flowcontrol.apiserver.k8s.io/v1
+    deprecatedIn: "1.23"
+    removedIn: "1.26"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#flowcontrol-resources-v126
+    notes: >-
+      Custom API Priority and Fairness objects are rare but silently drop
+      apiserver protection when they stop being served.
+
+  - id: prioritylevelconfiguration-v1beta1
+    kind: PriorityLevelConfiguration
+    from: flowcontrol.apiserver.k8s.io/v1beta1
+    to: flowcontrol.apiserver.k8s.io/v1
+    deprecatedIn: "1.23"
+    removedIn: "1.26"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#flowcontrol-resources-v126
+    notes: >-
+      spec.limited.assuredConcurrencyShares is renamed to nominalConcurrencyShares
+      and limitResponse gains borrowing fields in later versions.
+
+  - id: csistoragecapacity-v1beta1
+    kind: CSIStorageCapacity
+    from: storage.k8s.io/v1beta1
+    to: storage.k8s.io/v1
+    deprecatedIn: "1.24"
+    removedIn: "1.27"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#csistoragecapacity-v127
+
+  - id: flowschema-v1beta2
+    kind: FlowSchema
+    from: flowcontrol.apiserver.k8s.io/v1beta2
+    to: flowcontrol.apiserver.k8s.io/v1
+    deprecatedIn: "1.26"
+    removedIn: "1.29"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#flowcontrol-resources-v129
+
+  - id: prioritylevelconfiguration-v1beta2
+    kind: PriorityLevelConfiguration
+    from: flowcontrol.apiserver.k8s.io/v1beta2
+    to: flowcontrol.apiserver.k8s.io/v1
+    deprecatedIn: "1.26"
+    removedIn: "1.29"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#flowcontrol-resources-v129
+    notes: assuredConcurrencyShares is renamed to nominalConcurrencyShares in v1.
+
+  - id: flowschema-v1beta3
+    kind: FlowSchema
+    from: flowcontrol.apiserver.k8s.io/v1beta3
+    to: flowcontrol.apiserver.k8s.io/v1
+    deprecatedIn: "1.29"
+    removedIn: "1.32"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#flowcontrol-resources-v132
+
+  - id: prioritylevelconfiguration-v1beta3
+    kind: PriorityLevelConfiguration
+    from: flowcontrol.apiserver.k8s.io/v1beta3
+    to: flowcontrol.apiserver.k8s.io/v1
+    deprecatedIn: "1.29"
+    removedIn: "1.32"
+    transform: manual
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/#flowcontrol-resources-v132
+
+  - id: validatingadmissionpolicy-v1beta1
+    kind: ValidatingAdmissionPolicy
+    from: admissionregistration.k8s.io/v1beta1
+    to: admissionregistration.k8s.io/v1
+    deprecatedIn: "1.30"
+    removedIn: "1.34"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/
+    notes: >-
+      ValidatingAdmissionPolicy went GA in 1.30. Policies still written against
+      v1beta1 stop being admitted once the beta API is dropped; the object body
+      itself is compatible.
+
+  - id: validatingadmissionpolicybinding-v1beta1
+    kind: ValidatingAdmissionPolicyBinding
+    from: admissionregistration.k8s.io/v1beta1
+    to: admissionregistration.k8s.io/v1
+    deprecatedIn: "1.30"
+    removedIn: "1.34"
+    transform: apiversion
+    docs: https://kubernetes.io/docs/reference/using-api/deprecation-guide/
