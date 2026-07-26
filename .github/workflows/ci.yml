@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: build
+        run: go build ./...
+
+      - name: test
+        run: go test -race ./...
+
+      # The README example has to keep working, so CI runs it.
+      - name: smoke test the documented example
+        run: |
+          make build
+          ./bin/k8s-upgrade-report scan \
+            --manifests testdata/broken-cluster \
+            --current 1.24 --target 1.29 --provider eks \
+            --html "$RUNNER_TEMP/report.html" \
+            --patch "$RUNNER_TEMP/upgrade.patch"
+          test -s "$RUNNER_TEMP/report.html"
+          git apply --check --directory=testdata/broken-cluster "$RUNNER_TEMP/upgrade.patch"
+
+      - name: fail-on flag returns exit code 2 on blockers
+        run: |
+          set +e
+          ./bin/k8s-upgrade-report scan \
+            --manifests testdata/broken-cluster --target 1.29 --fail-on blocker >/dev/null
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "expected exit code 2, got $code"; exit 1
+          fi
+          ./bin/k8s-upgrade-report scan \
+            --manifests testdata/clean --target 1.31 --fail-on blocker >/dev/null
