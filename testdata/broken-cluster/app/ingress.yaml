@@ -1,0 +1,24 @@
+# The public ingress. Written in 2019 and never touched since.
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: storefront
+  namespace: shop
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  backend:
+    serviceName: storefront
+    servicePort: 80
+  rules:
+    - host: shop.example.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: storefront
+              servicePort: 80
+          - path: /api
+            backend:
+              serviceName: storefront-api
+              servicePort: http

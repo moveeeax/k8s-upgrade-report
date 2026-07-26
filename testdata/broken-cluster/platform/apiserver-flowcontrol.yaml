@@ -1,0 +1,21 @@
+# Hand-written API Priority and Fairness objects, added after an apiserver
+# meltdown in 2022 and forgotten about.
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta2
+kind: FlowSchema
+metadata:
+  name: batch-jobs-low
+spec:
+  priorityLevelConfiguration:
+    name: batch-jobs
+  matchingPrecedence: 1000
+  rules:
+    - subjects:
+        - kind: ServiceAccount
+          serviceAccount:
+            name: reindex
+            namespace: shop
+      resourceRules:
+        - verbs: ["*"]
+          apiGroups: ["batch"]
+          resources: ["jobs"]
+          namespaces: ["shop"]

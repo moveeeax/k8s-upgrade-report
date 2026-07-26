@@ -1,0 +1,22 @@
+# Rendered output of an old ingress-nginx chart, committed to the repo.
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-nginx-default-backend
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ingress-nginx
+    helm.sh/chart: ingress-nginx-3.36.0
+  annotations:
+    meta.helm.sh/release-name: ingress-nginx
+    meta.helm.sh/release-namespace: ingress-nginx
+spec:
+  rules:
+    - host: fallback.example.com
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: ingress-nginx-defaultbackend
+              servicePort: 80
