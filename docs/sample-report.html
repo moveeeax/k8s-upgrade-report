@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kubernetes upgrade readiness 1.24 &rarr; 1.29</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #16191d; --muted: #5c6570; --line: #e3e6ea;
+    --card: #f7f8fa; --blocker: #b3261e; --warn: #9a6700; --ok: #1a7f37; --accent: #0b57d0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a; --fg: #e6e9ec; --muted: #9aa4ae; --line: #2a2f35;
+      --card: #1b1f24; --blocker: #ff6b60; --warn: #e3b341; --ok: #4ac26b; --accent: #6ea8fe;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 60rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  h2 { font-size: 1.05rem; margin: 2.5rem 0 .75rem; padding-bottom: .35rem; border-bottom: 1px solid var(--line); }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 1.5rem; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85em; }
+  .verdict { border: 1px solid var(--line); border-left: 5px solid var(--muted);
+    background: var(--card); border-radius: 6px; padding: 1rem 1.15rem; }
+  .verdict.nogo { border-left-color: var(--blocker); }
+  .verdict.patch { border-left-color: var(--warn); }
+  .verdict.go { border-left-color: var(--ok); }
+  .verdict .label { font-weight: 700; letter-spacing: .08em; font-size: .78rem; text-transform: uppercase; }
+  .verdict.nogo .label { color: var(--blocker); }
+  .verdict.patch .label { color: var(--warn); }
+  .verdict.go .label { color: var(--ok); }
+  .verdict ul { margin: .75rem 0 0; padding-left: 1.1rem; }
+  .verdict li { margin: .3rem 0; }
+  .counts { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1.25rem 0 0; }
+  .count { background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+    padding: .55rem .8rem; min-width: 7.5rem; }
+  .count b { display: block; font-size: 1.35rem; line-height: 1.2; }
+  .count span { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+  .finding { border: 1px solid var(--line); border-radius: 6px; padding: .85rem 1rem; margin: .6rem 0; background: var(--card); }
+  .finding .head { display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; }
+  .finding .title { font-weight: 600; }
+  .finding .where { color: var(--muted); font-size: .82rem; }
+  .finding p { margin: .45rem 0 0; }
+  .finding .fix { border-left: 3px solid var(--accent); padding-left: .7rem; }
+  .tag { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em;
+    border: 1px solid var(--line); border-radius: 3px; padding: .1rem .4rem; color: var(--muted); }
+  .tag.auto { color: var(--ok); border-color: var(--ok); }
+  .tag.owner { color: var(--warn); border-color: var(--warn); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+  ol.seq { padding-left: 1.2rem; }
+  ol.seq li { margin: .35rem 0; }
+  .empty { color: var(--muted); font-style: italic; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: .8rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Kubernetes upgrade readiness: 1.24 &rarr; 1.29</h1>
+  <p class="sub">
+    Amazon EKS &middot; 
+    source <span class="mono">testdata/broken-cluster</span> &middot;
+    generated 2026-07-26T02:18:08Z by k8s-upgrade-report 7ce528c-dirty
+  </p>
+
+  <div class="verdict nogo">
+    <div class="label">NO-GO</div>
+    <p>5 blocker(s) need a decision before the control plane moves: 3 owned by a vendor chart or operator, 2 needing a hand-written change. 7 further object(s) are mechanically fixable.</p>
+    
+    <ul><li>Ingress in charts/ingress-nginx/rendered.yaml is owned by helm ingress-nginx - Upgrade the chart behind ingress-nginx to a version that emits the new API, then re-render.</li><li>CustomResourceDefinition in platform/cert-manager-crd.yaml is owned by helm cert-manager - Upgrade the chart behind cert-manager to a version that emits the new API, then re-render.</li><li>HorizontalPodAutoscaler in platform/monitoring-hpa.yaml is owned by argocd monitoring - Change the source of monitoring - editing the live object will be reverted on the next sync.</li><li>PodDisruptionBudget storefront (app/workloads.yaml) needs a hand-written change: Relax the budget for the duration of the upgrade (maxUnavailable: 1) or delete it during the roll and restore it afterwards.</li><li>PodSecurityPolicy restricted-legacy (platform/psp.yaml) needs a hand-written change: No replacement API exists - this needs a design decision, not a rewrite.</li></ul>
+    
+  </div>
+
+  <div class="counts">
+    <div class="count"><b>12</b><span>blockers</span></div>
+    <div class="count"><b>2</b><span>warnings</span></div>
+    <div class="count"><b>3</b><span>vendor owned</span></div>
+    <div class="count"><b>7</b><span>auto fixable</span></div>
+    <div class="count"><b>12</b><span>objects scanned</span></div>
+    <div class="count"><b>7</b><span>files scanned</span></div>
+  </div>
+
+  <h2>Blockers you own</h2>
+  
+    
+<div class="finding">
+  <div class="head">
+    <span class="title">Ingress extensions/v1beta1 is removed in 1.22</span>
+    <span class="tag auto">auto-fixable</span>
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">app/ingress.yaml:2 &middot; Ingress shop/storefront</div>
+  <p>extensions/v1beta1 was deprecated in 1.14 and is no longer served from 1.22. The cluster is already on 1.24, so this object is not being served today. backend.serviceName/servicePort move under backend.service, spec.backend becomes spec.defaultBackend and every path needs an explicit pathType.</p>
+  
+  <p class="fix">Rewrite to networking.k8s.io/v1. `k8s-upgrade-report patch` generates the diff. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#ingress-v122">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">CronJob batch/v1beta1 is removed in 1.25</span>
+    <span class="tag auto">auto-fixable</span>
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">app/workloads.yaml:1 &middot; CronJob shop/nightly-reindex</div>
+  <p>batch/v1beta1 was deprecated in 1.21 and is no longer served from 1.25.</p>
+  
+  <p class="fix">Rewrite to batch/v1. `k8s-upgrade-report patch` generates the diff. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#cronjob-v125">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">PodDisruptionBudget policy/v1beta1 is removed in 1.25</span>
+    <span class="tag auto">auto-fixable</span>
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">app/workloads.yaml:17 &middot; PodDisruptionBudget shop/storefront</div>
+  <p>policy/v1beta1 was deprecated in 1.21 and is no longer served from 1.25. Field-compatible, but in policy/v1 an empty selector selects every pod in the namespace instead of none. Check any PDB with `selector: {}`.</p>
+  
+  <p class="fix">Rewrite to policy/v1. `k8s-upgrade-report patch` generates the diff. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#poddisruptionbudget-v125">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">PodDisruptionBudget makes node drains impossible</span>
+    
+    
+    <span class="tag">upgrade-risk</span>
+  </div>
+  <div class="where mono">app/workloads.yaml:17 &middot; PodDisruptionBudget shop/storefront</div>
+  <p>This budget allows zero voluntary disruption, so `kubectl drain` never completes and a managed node-group upgrade stalls until the cloud provider times out and rolls back.</p>
+  
+  <p class="fix">Relax the budget for the duration of the upgrade (maxUnavailable: 1) or delete it during the roll and restore it afterwards.</p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">PodDisruptionBudget policy/v1beta1 is removed in 1.25</span>
+    <span class="tag auto">auto-fixable</span>
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">app/workloads.yaml:28 &middot; PodDisruptionBudget shop/catch-all</div>
+  <p>policy/v1beta1 was deprecated in 1.21 and is no longer served from 1.25. Field-compatible, but in policy/v1 an empty selector selects every pod in the namespace instead of none. Check any PDB with `selector: {}`.</p>
+  
+  <p class="fix">Rewrite to policy/v1. `k8s-upgrade-report patch` generates the diff. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#poddisruptionbudget-v125">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">HorizontalPodAutoscaler autoscaling/v2beta1 is removed in 1.25</span>
+    <span class="tag auto">auto-fixable</span>
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">app/workloads.yaml:37 &middot; HorizontalPodAutoscaler shop/storefront</div>
+  <p>autoscaling/v2beta1 was deprecated in 1.22 and is no longer served from 1.25. metrics[].resource.targetAverageUtilization becomes metrics[].resource.target.averageUtilization with an explicit target type.</p>
+  
+  <p class="fix">Rewrite to autoscaling/v2. `k8s-upgrade-report patch` generates the diff. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#horizontalpodautoscaler-v125">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">FlowSchema flowcontrol.apiserver.k8s.io/v1beta2 is removed in 1.29</span>
+    <span class="tag auto">auto-fixable</span>
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">platform/apiserver-flowcontrol.yaml:3 &middot; FlowSchema batch-jobs-low</div>
+  <p>flowcontrol.apiserver.k8s.io/v1beta2 was deprecated in 1.26 and is no longer served from 1.29.</p>
+  
+  <p class="fix">Rewrite to flowcontrol.apiserver.k8s.io/v1. `k8s-upgrade-report patch` generates the diff. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#flowcontrol-resources-v129">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">PodSecurityPolicy policy/v1beta1 is removed in 1.25</span>
+    
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">platform/psp.yaml:1 &middot; PodSecurityPolicy restricted-legacy</div>
+  <p>policy/v1beta1 was deprecated in 1.21 and is no longer served from 1.25. No replacement API. Map each policy onto Pod Security Admission labels on the namespace (privileged/baseline/restricted) or onto an admission controller you already run. The remaining RBAC rules that grant &#34;use&#34; on podsecuritypolicies become dead but harmless.</p>
+  
+  <p class="fix">No replacement API exists - this needs a design decision, not a rewrite. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#psp-v125">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">ClusterRole rbac.authorization.k8s.io/v1beta1 is removed in 1.22</span>
+    <span class="tag auto">auto-fixable</span>
+    
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">platform/psp.yaml:21 &middot; ClusterRole psp-restricted-legacy</div>
+  <p>rbac.authorization.k8s.io/v1beta1 was deprecated in 1.17 and is no longer served from 1.22. The cluster is already on 1.24, so this object is not being served today.</p>
+  
+  <p class="fix">Rewrite to rbac.authorization.k8s.io/v1. `k8s-upgrade-report patch` generates the diff. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#rbac-resources-v122">Reference</a></p>
+</div>
+
+  
+
+  <h2>Vendor must upgrade first</h2>
+  
+    <p class="sub">These objects are owned by a chart, an operator or a GitOps controller. Patching them in your repository is reverted on the next reconcile - the upstream has to ship the new API.</p>
+    
+<div class="finding">
+  <div class="head">
+    <span class="title">Ingress networking.k8s.io/v1beta1 is removed in 1.22</span>
+    
+    <span class="tag owner">helm ingress-nginx</span>
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">charts/ingress-nginx/rendered.yaml:2 &middot; Ingress ingress-nginx/ingress-nginx-default-backend</div>
+  <p>networking.k8s.io/v1beta1 was deprecated in 1.19 and is no longer served from 1.22. The cluster is already on 1.24, so this object is not being served today. Same field moves as the extensions/v1beta1 form. Ingress controllers pinned to v1beta1 (older nginx-ingress, older ALB controller) must be upgraded before the objects are rewritten.</p>
+  <p class="where">Detected via meta.helm.sh/release-name annotation.</p>
+  <p class="fix">Upgrade the chart behind ingress-nginx to a version that emits the new API, then re-render. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#ingress-v122">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">CustomResourceDefinition apiextensions.k8s.io/v1beta1 is removed in 1.22</span>
+    
+    <span class="tag owner">helm cert-manager</span>
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">platform/cert-manager-crd.yaml:2 &middot; CustomResourceDefinition certificates.cert-manager.io</div>
+  <p>apiextensions.k8s.io/v1beta1 was deprecated in 1.16 and is no longer served from 1.22. The cluster is already on 1.24, so this object is not being served today. v1 requires a structural schema per version and drops the top-level validation/subresources fields. Almost always shipped by a vendor chart - upgrade the chart rather than hand-editing the CRD.</p>
+  <p class="where">Detected via meta.helm.sh/release-name annotation.</p>
+  <p class="fix">Upgrade the chart behind cert-manager to a version that emits the new API, then re-render. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#customresourcedefinition-v122">Reference</a></p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">HorizontalPodAutoscaler autoscaling/v2beta2 is removed in 1.26</span>
+    
+    <span class="tag owner">argocd monitoring</span>
+    <span class="tag">api-removal</span>
+  </div>
+  <div class="where mono">platform/monitoring-hpa.yaml:3 &middot; HorizontalPodAutoscaler monitoring/grafana</div>
+  <p>autoscaling/v2beta2 was deprecated in 1.23 and is no longer served from 1.26. Field-compatible with autoscaling/v2.</p>
+  <p class="where">Detected via argocd.argoproj.io/instance annotation.</p>
+  <p class="fix">Change the source of monitoring - editing the live object will be reverted on the next sync. <a href="https://kubernetes.io/docs/reference/using-api/deprecation-guide/#horizontalpodautoscaler-v126">Reference</a></p>
+</div>
+
+  
+
+  <h2>Warnings after 1.29</h2>
+  
+    
+<div class="finding">
+  <div class="head">
+    <span class="title">Empty PodDisruptionBudget selector changes meaning in policy/v1</span>
+    
+    
+    <span class="tag">upgrade-risk</span>
+  </div>
+  <div class="where mono">app/workloads.yaml:28 &middot; PodDisruptionBudget shop/catch-all</div>
+  <p>In policy/v1beta1 an empty selector selects no pods. In policy/v1 it selects every pod in the namespace, so this budget starts applying to workloads it never covered before.</p>
+  
+  <p class="fix">Write the selector out explicitly before migrating this object to policy/v1.</p>
+</div>
+
+<div class="finding">
+  <div class="head">
+    <span class="title">Scheduling depends on a retired beta node label</span>
+    
+    
+    <span class="tag">upgrade-risk</span>
+  </div>
+  <div class="where mono">app/workloads.yaml:55 &middot; Deployment shop/storefront</div>
+  <p>This object references &#34;beta.kubernetes.io/os&#34;. Beta node labels stopped being applied to newly joined nodes, so pods pinned to them go unschedulable exactly when the upgrade replaces the node pool.</p>
+  
+  <p class="fix">Switch to the GA equivalent (kubernetes.io/os, kubernetes.io/arch, topology.kubernetes.io/zone, node.kubernetes.io/instance-type) before rolling nodes.</p>
+</div>
+
+  
+
+  <h2>Upgrade sequence</h2>
+  
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Hop</th><th>What stops being served</th><th>Objects hit</th><th>Addon floors</th></tr></thead>
+    <tbody>
+    
+      <tr>
+        <td class="mono">1.24 &rarr; 1.25</td>
+        <td>
+          
+            <div class="mono">batch/v1beta1 CronJob</div><div class="mono">autoscaling/v2beta1 HorizontalPodAutoscaler</div><div class="mono">policy/v1beta1 PodDisruptionBudget</div><div class="mono">policy/v1beta1 PodSecurityPolicy</div>
+          
+        </td>
+        <td>5</td>
+        <td>
+          
+            <div class="mono">aws-ebs-csi-driver &ge; 1.16.0</div><div class="mono">coredns &ge; 1.9.3</div><div class="mono">kube-proxy &ge; 1.25.6</div><div class="mono">vpc-cni &ge; 1.12.0</div>
+          
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="mono">1.25 &rarr; 1.26</td>
+        <td>
+          
+            <div class="mono">autoscaling/v2beta2 HorizontalPodAutoscaler</div>
+          
+        </td>
+        <td>1</td>
+        <td>
+          
+            <div class="mono">aws-ebs-csi-driver &ge; 1.19.0</div><div class="mono">coredns &ge; 1.9.3</div><div class="mono">kube-proxy &ge; 1.26.2</div><div class="mono">vpc-cni &ge; 1.12.6</div>
+          
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="mono">1.26 &rarr; 1.27</td>
+        <td>
+          <span class="empty">nothing in this repository</span>
+        </td>
+        <td>0</td>
+        <td>
+          
+            <div class="mono">aws-ebs-csi-driver &ge; 1.19.0</div><div class="mono">coredns &ge; 1.10.1</div><div class="mono">kube-proxy &ge; 1.27.1</div><div class="mono">vpc-cni &ge; 1.12.6</div>
+          
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="mono">1.27 &rarr; 1.28</td>
+        <td>
+          <span class="empty">nothing in this repository</span>
+        </td>
+        <td>0</td>
+        <td>
+          
+            <div class="mono">aws-ebs-csi-driver &ge; 1.25.0</div><div class="mono">coredns &ge; 1.10.1</div><div class="mono">kube-proxy &ge; 1.28.1</div><div class="mono">vpc-cni &ge; 1.15.0</div>
+          
+        </td>
+      </tr>
+    
+      <tr>
+        <td class="mono">1.28 &rarr; 1.29</td>
+        <td>
+          
+            <div class="mono">flowcontrol.apiserver.k8s.io/v1beta2 FlowSchema</div>
+          
+        </td>
+        <td>1</td>
+        <td>
+          
+            <div class="mono">aws-ebs-csi-driver &ge; 1.28.0</div><div class="mono">coredns &ge; 1.11.1</div><div class="mono">kube-proxy &ge; 1.29.0</div><div class="mono">vpc-cni &ge; 1.16.0</div>
+          
+        </td>
+      </tr>
+    
+    </tbody>
+  </table>
+  </div>
+  
+
+  
+  <h2>Amazon EKS control plane and node group order</h2>
+  <ol class="seq"><li>Upgrade the control plane one minor at a time. EKS refuses to skip minors.</li><li>Update the managed addons (vpc-cni, kube-proxy, coredns) to the floor for the new minor *before* rolling nodes.</li><li>Roll managed node groups after the control plane. Nodes may lag the control plane by at most 1-2 minors depending on version.</li><li>Check every PodDisruptionBudget first - a PDB that can never be satisfied stalls a managed node group update until it times out and rolls back.</li><li>Self-managed nodes and Karpenter node pools need their AMI/AMI family pinned version bumped separately.</li></ol>
+  
+
+  
+  <h2>Out of scope</h2>
+  <ul><li>CRD schema migration and operator upgrades</li><li>Service mesh version jumps (Istio, Linkerd)</li><li>Anything outside EKS, AKS and GKE</li><li>Applying changes to a live cluster - this tool only generates patches</li></ul>
+  
+
+  
+  <h2>Skipped inputs</h2>
+  <p class="sub">Not scanned, and therefore not covered by the verdict above.</p>
+  <ul><li class="mono">app/templates-hpa.yaml: unrendered Helm template</li></ul>
+  
+
+  <footer>
+    Generated from manifests on disk. A live cluster may run objects that are not in this repository;
+    this report covers what was scanned and nothing else.
+  </footer>
+</main>
+</body>
+</html>
+
+

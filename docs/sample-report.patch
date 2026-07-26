@@ -1,0 +1,148 @@
+--- a/app/ingress.yaml
++++ b/app/ingress.yaml
+@@ -1,24 +1,32 @@
+ # The public ingress. Written in 2019 and never touched since.
+-apiVersion: extensions/v1beta1
+-kind: Ingress
+-metadata:
+-  name: storefront
+-  namespace: shop
+-  annotations:
+-    kubernetes.io/ingress.class: nginx
+-spec:
+-  backend:
+-    serviceName: storefront
+-    servicePort: 80
+-  rules:
+-    - host: shop.example.com
+-      http:
+-        paths:
+-          - path: /
+-            backend:
+-              serviceName: storefront
+-              servicePort: 80
+-          - path: /api
+-            backend:
+-              serviceName: storefront-api
+-              servicePort: http
++apiVersion: networking.k8s.io/v1
++kind: Ingress
++metadata:
++  name: storefront
++  namespace: shop
++  annotations:
++    kubernetes.io/ingress.class: nginx
++spec:
++  defaultBackend:
++    service:
++      name: storefront
++      port:
++        number: 80
++  rules:
++    - host: shop.example.com
++      http:
++        paths:
++          - path: /
++            pathType: ImplementationSpecific
++            backend:
++              service:
++                name: storefront
++                port:
++                  number: 80
++          - path: /api
++            pathType: ImplementationSpecific
++            backend:
++              service:
++                name: storefront-api
++                port:
++                  name: http
+--- a/app/workloads.yaml
++++ b/app/workloads.yaml
+@@ -1,4 +1,4 @@
+-apiVersion: batch/v1beta1
++apiVersion: batch/v1
+ kind: CronJob
+ metadata:
+   name: nightly-reindex
+@@ -14,7 +14,7 @@
+             - name: reindex
+               image: registry.example.com/shop/reindex:1.4.2
+ ---
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ kind: PodDisruptionBudget
+ metadata:
+   name: storefront
+@@ -25,7 +25,7 @@
+     matchLabels:
+       app: storefront
+ ---
+-apiVersion: policy/v1beta1
++apiVersion: policy/v1
+ kind: PodDisruptionBudget
+ metadata:
+   name: catch-all
+@@ -34,23 +34,25 @@
+   minAvailable: 1
+   selector: {}
+ ---
+-apiVersion: autoscaling/v2beta1
+-kind: HorizontalPodAutoscaler
+-metadata:
+-  name: storefront
+-  namespace: shop
+-spec:
+-  scaleTargetRef:
+-    apiVersion: apps/v1
+-    kind: Deployment
+-    name: storefront
+-  minReplicas: 2
+-  maxReplicas: 10
+-  metrics:
+-    - type: Resource
+-      resource:
+-        name: cpu
+-        targetAverageUtilization: 70
++apiVersion: autoscaling/v2
++kind: HorizontalPodAutoscaler
++metadata:
++  name: storefront
++  namespace: shop
++spec:
++  scaleTargetRef:
++    apiVersion: apps/v1
++    kind: Deployment
++    name: storefront
++  minReplicas: 2
++  maxReplicas: 10
++  metrics:
++    - type: Resource
++      resource:
++        name: cpu
++        target:
++          type: Utilization
++          averageUtilization: 70
+ ---
+ apiVersion: apps/v1
+ kind: Deployment
+--- a/platform/apiserver-flowcontrol.yaml
++++ b/platform/apiserver-flowcontrol.yaml
+@@ -1,6 +1,6 @@
+ # Hand-written API Priority and Fairness objects, added after an apiserver
+ # meltdown in 2022 and forgotten about.
+-apiVersion: flowcontrol.apiserver.k8s.io/v1beta2
++apiVersion: flowcontrol.apiserver.k8s.io/v1
+ kind: FlowSchema
+ metadata:
+   name: batch-jobs-low
+--- a/platform/psp.yaml
++++ b/platform/psp.yaml
+@@ -18,7 +18,7 @@
+     - persistentVolumeClaim
+     - secret
+ ---
+-apiVersion: rbac.authorization.k8s.io/v1beta1
++apiVersion: rbac.authorization.k8s.io/v1
+ kind: ClusterRole
+ metadata:
+   name: psp-restricted-legacy
