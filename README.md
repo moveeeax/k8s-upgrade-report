@@ -44,7 +44,7 @@ cd k8s-upgrade-report
 make build      # -> bin/k8s-upgrade-report
 ```
 
-Requires Go 1.24 or newer. No other dependencies.
+Requires Go 1.26 or newer. No other dependencies.
 
 ## Usage
 
@@ -179,6 +179,10 @@ The patch generator is covered end to end: the test writes the fixtures into a
 temporary git repository, applies the generated diff with `git apply`, re-scans
 the result and asserts that nothing mechanically fixable is left and that the
 rewritten Ingress really is a valid `networking.k8s.io/v1` object.
+
+## License
+
+[MIT](LICENSE)
 
 ---
 
