@@ -10,7 +10,7 @@ import (
 	"github.com/moveeeax/k8s-upgrade-report/internal/patch"
 	"github.com/moveeeax/k8s-upgrade-report/internal/rules"
 	"github.com/moveeeax/k8s-upgrade-report/internal/scan"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 const fixture = "../../testdata/broken-cluster"
