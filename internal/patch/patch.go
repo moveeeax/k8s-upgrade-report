@@ -8,7 +8,7 @@ import (
 
 	"github.com/moveeeax/k8s-upgrade-report/internal/rules"
 	"github.com/moveeeax/k8s-upgrade-report/internal/scan"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Result is a generated patch plus the bookkeeping needed to explain it.

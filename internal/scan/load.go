@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Resource is a single YAML document that looks like a Kubernetes object.

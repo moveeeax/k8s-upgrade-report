@@ -6,7 +6,7 @@ package patch
 import (
 	"fmt"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // transformDoc rewrites the mapping in place for the named transform.
